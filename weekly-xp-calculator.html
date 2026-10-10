@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>周经验值加成/衰减计算器</title>
+<style>
+  :root{
+    --bg:#0a0d11; --card:#12171d; --line:#232b34; --txt:#e8edf2; --dim:#8b98a5;
+    --yellow:#ffd60a; --red:#ff4d4f; --green:#37d67a; --blue:#4da3ff; --gray:#b9c4cf;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:"Segoe UI",-apple-system,"Microsoft YaHei",sans-serif;line-height:1.55}
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 16px 60px}
+  header{text-align:center;margin-bottom:22px}
+  h1{font-size:26px;color:var(--yellow);margin:0 0 6px;letter-spacing:2px}
+  .sub{color:var(--dim);font-size:13px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+  h2{font-size:15px;margin:0 0 14px;color:#cfd8e0;font-weight:600}
+  .muted{color:var(--dim);font-size:12px}
+  /* 输入区 */
+  .seg{display:flex;gap:6px;background:#0d1116;border:1px solid var(--line);border-radius:10px;padding:4px;width:max-content;margin-bottom:14px}
+  .seg button{background:none;border:0;color:var(--dim);padding:7px 18px;border-radius:7px;cursor:pointer;font-size:14px}
+  .seg button.on{background:#1e2733;color:#fff}
+  .big-input{display:flex;align-items:center;gap:12px}
+  #mainInput{flex:1;background:#0d1116;border:1px solid #2c3641;color:var(--yellow);
+    font-size:30px;font-weight:700;padding:12px 14px;border-radius:10px;width:100%;
+    font-variant-numeric:tabular-nums}
+  #mainInput:focus{outline:none;border-color:var(--yellow)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .chip{background:#0d1116;border:1px solid #2c3641;color:#9fb0bf;border-radius:999px;
+    padding:5px 12px;font-size:12px;cursor:pointer}
+  .chip:hover{border-color:var(--yellow);color:var(--yellow)}
+  /* 结果区 */
+  .result-top{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  .result-label{color:var(--dim);font-size:13px}
+  #finalXp{font-size:44px;font-weight:800;color:var(--yellow);line-height:1.15;
+    font-variant-numeric:tabular-nums}
+  .formula{font-size:12px;color:var(--dim);text-align:right}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:16px}
+  .tile{background:#0d1116;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .tile .k{font-size:12px;color:var(--dim);margin-bottom:2px}
+  .tile .v{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+  .v.up{color:var(--green)} .v.down{color:var(--red)} .v.blue{color:var(--blue)}
+  /* 表格 */
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{padding:9px 8px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--dim);font-weight:500;font-size:12.5px}
+  tr.active td{background:rgba(255,214,10,.07)}
+  tr.dim td{opacity:.45}
+  td .tag{display:inline-block;padding:1px 7px;border-radius:5px;font-size:11.5px}
+  /* 图表 */
+  #chart svg{width:100%;height:auto;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;font-size:12px;color:var(--dim)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  /* 反算 */
+  .rev-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+  .field label{display:block;font-size:12.5px;color:var(--dim);margin-bottom:6px}
+  .field input{background:#0d1116;border:1px solid #2c3641;color:var(--txt);
+    font-size:17px;padding:9px 12px;border-radius:9px;width:100%;font-variant-numeric:tabular-nums}
+  .field input:focus{outline:none;border-color:var(--yellow)}
+  .out{background:#0d1116;border:1px solid var(--line);border-radius:9px;padding:9px 12px}
+  .out .k{font-size:12px;color:var(--dim)}
+  .out .v{font-size:19px;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums}
+  /* 参数 */
+  .params{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+  .param{background:#0d1116;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .param label{display:block;font-size:12px;color:var(--dim);margin-bottom:6px}
+  .param input{background:#131a21;border:1px solid #2c3641;color:var(--txt);font-size:16px;
+    padding:7px 10px;border-radius:8px;width:100%;font-variant-numeric:tabular-nums}
+  .param input:focus{outline:none;border-color:var(--yellow)}
+  .quick{display:flex;gap:6px;margin-top:7px}
+  .quick button{flex:1;background:#182029;border:1px solid #2c3641;color:#9fb0bf;
+    border-radius:7px;padding:4px 0;font-size:12px;cursor:pointer}
+  .quick button:hover{border-color:var(--yellow);color:var(--yellow)}
+  .actions{margin-top:14px;text-align:right}
+  .btn{background:#1e2733;border:1px solid #2c3641;color:#cfd8e0;border-radius:8px;
+    padding:8px 16px;font-size:13px;cursor:pointer}
+  .btn:hover{border-color:var(--red);color:var(--red)}
+  /* 本局记录 */
+  .rec-row{display:flex;gap:8px;margin-bottom:14px}
+  #recInput{flex:1;background:#0d1116;border:1px solid #2c3641;color:var(--yellow);
+    font-size:18px;font-weight:600;padding:11px 13px;border-radius:9px;min-width:0}
+  #recInput:focus{outline:none;border-color:var(--green)}
+  #recInput::placeholder{color:#5c6773;font-weight:400}
+  .btn-primary{background:#1f6f43;border:1px solid #2e9c62;color:#fff;font-size:16px;
+    font-weight:700;padding:11px 28px;border-radius:9px;cursor:pointer;letter-spacing:2px}
+  .btn-primary:hover{background:#26854f}
+  .status{border-radius:11px;padding:12px 14px 14px;border:1px solid;margin-bottom:12px}
+  .status .s-title{font-size:17px;font-weight:800;margin-bottom:2px}
+  .status .s-sub{font-size:13px;color:#aab7c4}
+  .st-green{background:rgba(55,214,122,.10);border-color:rgba(55,214,122,.45)}
+  .st-green .s-title{color:#37d67a}
+  .st-blue{background:rgba(77,163,255,.10);border-color:rgba(77,163,255,.45)}
+  .st-blue .s-title{color:#4da3ff}
+  .st-gray{background:rgba(185,196,207,.08);border-color:rgba(185,196,207,.35)}
+  .st-gray .s-title{color:#c9d3dc}
+  .st-red{background:rgba(255,77,79,.10);border-color:rgba(255,77,79,.5)}
+  .st-red .s-title{color:#ff6b6d}
+  .st-none{background:#0d1116;border-color:var(--line)}
+  .st-none .s-title{color:var(--dim);font-size:14px;font-weight:600}
+  .pwrap{position:relative;margin-top:14px}
+  .pbar{display:flex;height:21px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#0d1116}
+  .pbar span{display:flex;align-items:center;justify-content:center;font-size:10px;
+    color:#fff;white-space:nowrap;overflow:hidden;padding:0 6px;letter-spacing:.2px}
+  .pmark{position:absolute;top:-5px;height:27px;width:3px;background:var(--yellow);
+    box-shadow:0 0 6px rgba(255,214,10,.85);transform:translateX(-1.5px)}
+  .pmark em{position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-style:normal;
+    white-space:nowrap;font-size:10.5px;color:#ffd60a;background:#0a0d11;padding:1px 5px;
+    border-radius:4px;font-weight:700;border:1px solid rgba(255,214,10,.35)}
+  .pticks{position:relative;height:17px;margin-top:3px;font-size:11px}
+  .pticks i{position:absolute;transform:translateX(-50%);font-style:normal;white-space:nowrap}
+  .pticks i b{color:#ff4d4f;font-weight:700}
+  .rec-meta{font-size:12.5px;color:var(--dim);margin:12px 0 8px}
+  .rec-list{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+  .rec-list table{font-size:12.5px}
+  .rec-list th{position:sticky;top:0;background:#141a21;z-index:1}
+  .rec-list tr.active td{background:rgba(255,214,10,.07)}
+  .rec-empty{padding:18px;text-align:center;color:var(--dim);font-size:13px}
+  .del{background:none;border:1px solid #2c3641;color:#8b98a5;border-radius:6px;
+    padding:2px 8px;font-size:11.5px;cursor:pointer}
+  .del:hover{border-color:var(--red);color:var(--red)}
+  .rec-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+  .rec-actions button{background:#182029;border:1px solid #2c3641;color:#9fb0bf;border-radius:8px;
+    padding:6px 14px;font-size:12.5px;cursor:pointer}
+  .rec-actions button:hover:not(:disabled){border-color:var(--yellow);color:var(--yellow)}
+  .rec-actions button:disabled{opacity:.35;cursor:default}
+  .layout{display:flex;gap:12px;align-items:flex-start}
+  .slotbar{width:118px;flex:none;position:sticky;top:14px;background:#111721;border:1px solid var(--line);
+    border-radius:12px;padding:10px}
+  .slotbar-t{font-size:11px;color:var(--dim);margin-bottom:8px;letter-spacing:1px}
+  .slot-btn{display:block;width:100%;text-align:left;background:#0d1116;border:1px solid #2c3641;
+    color:#9fb0bf;border-radius:8px;padding:5px 8px;margin-bottom:6px;cursor:pointer}
+  .slot-btn:hover{border-color:var(--yellow);color:var(--yellow)}
+  .slot-btn.on{border-color:var(--yellow);color:var(--yellow);background:rgba(255,214,10,.07)}
+  .slot-btn b{display:block;font-size:12px;line-height:1.35}
+  .slot-btn i{display:block;font-style:normal;font-size:10px;color:var(--dim);margin-top:1px}
+  .slot-add{width:100%;background:#1e2733;border:1px dashed #3a4756;color:#9fb0bf;border-radius:8px;
+    padding:5px 8px;font-size:11.5px;cursor:pointer}
+  .slot-add:hover{border-color:var(--yellow);color:var(--yellow)}
+  #slotReset{margin-top:6px}
+  .slot-tip{font-size:10px;color:#5b6672;margin-top:8px;text-align:center;line-height:1.5}
+  .col{flex:1;min-width:0}
+  .panel-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;margin:2px 0 16px}
+  .panel-bar .muted{font-size:12px}
+  .mini-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .mini-row input{background:#0d1116;border:1px solid #2c3641;color:var(--text);border-radius:8px;
+    padding:9px 12px;font-size:14px;width:160px}
+  .mini-row input:focus{outline:none;border-color:var(--yellow)}
+  .mini-track{position:relative;height:16px;border-radius:999px;background:#0d1116;
+    border:1px solid var(--line);overflow:visible}
+  .mini-fill{height:100%;border-radius:999px;width:0;
+    background:linear-gradient(90deg,#2fb86a,#37d67a 55%,#9fe8b8);
+    transition:width .12s ease}
+  .mini-knob{position:absolute;top:-4px;width:4px;height:24px;border-radius:2px;background:var(--yellow);
+    box-shadow:0 0 8px rgba(255,214,10,.9);transform:translateX(-2px);transition:left .12s ease}
+  .mini-bar-block{margin-bottom:16px}
+  .mini-cap{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;
+    color:var(--dim);margin-bottom:5px;gap:10px}
+  .mini-cap b{color:#ffd60a;font-size:12.5px;white-space:nowrap}
+  .mini-games{font-size:12px;color:#9fb0bf;margin-top:10px;line-height:1.7}
+  .mini-mark{position:absolute;top:-5px;bottom:-5px;width:2px;background:#ffd60a;
+    box-shadow:0 0 6px rgba(255,214,10,.75);z-index:4}
+  .mini-mark i{position:absolute;top:23px;left:50%;transform:translateX(-50%);font-style:normal;
+    font-size:10.5px;color:#ffd60a;white-space:nowrap;background:#0a0d11;padding:1px 6px;
+    border-radius:4px;font-weight:700;border:1px solid rgba(255,214,10,.35)}
+  .mini-tip{position:absolute;top:-34px;left:0;transform:translateX(-50%);background:#0a0d11;
+    border:1px solid rgba(255,214,10,.45);color:#ffd60a;border-radius:6px;padding:3px 9px;
+    font-size:11.5px;font-weight:700;white-space:nowrap;pointer-events:none;z-index:5;
+    box-shadow:0 4px 14px rgba(0,0,0,.5)}
+  .pchip{background:#0d1116;border:1px solid #2c3641;color:#6f7d8b;border-radius:999px;
+    padding:4px 12px;font-size:11.5px;cursor:pointer}
+  .pchip:hover{border-color:var(--yellow);color:var(--yellow)}
+  .pchip.on{border-color:rgba(255,214,10,.55);color:var(--yellow);background:rgba(255,214,10,.06)}
+  @media (max-width:760px){ .layout{flex-direction:column} .slotbar{width:100%;position:static} }
+  .prof-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .prof-row input{background:#0d1116;border:1px solid #2c3641;color:var(--text);border-radius:8px;
+    padding:9px 12px;font-size:14px;width:150px}
+  .prof-row input:focus{outline:none;border-color:var(--yellow)}
+  .toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:99;display:flex;gap:10px;
+    align-items:center;max-width:88vw;background:#141a21;border:1px solid var(--yellow);border-radius:12px;
+    padding:12px 20px;box-shadow:0 8px 30px rgba(0,0,0,.55)}
+  .toast b{font-size:16px;color:var(--yellow);white-space:nowrap}
+  .toast span{font-size:13px;color:#cfd8e0}
+  .toast.ok{border-color:#37d67a}
+  .toast.ok b{color:#37d67a}
+  .toast.warn{border-color:#ff6b6d}
+  .toast.warn b{color:#ff6b6d}
+  footer{color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);padding-top:14px}
+  footer li{margin-bottom:5px}
+  ul{padding-left:20px;margin:8px 0}
+  b.hl{color:var(--yellow)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>周经验值加成/衰减机制 计算器</h1>
+
+  </header>
+
+  <div class="layout">
+    <aside class="slotbar">
+      <div class="slotbar-t">多开副本</div>
+      <div id="slotList"></div>
+      <button type="button" class="slot-add" id="slotAdd">＋ 添加副本</button>
+      <button type="button" class="slot-add" id="slotReset">↺ 重置副本</button>
+      <div class="slot-tip">右键点副本名<br>可删除该副本</div>
+    </aside>
+    <div class="col">
+  <!-- 本局记录 -->
+  <section class="card">
+    <h2>本局记录（打完一局，输分 → 确定）</h2>
+    <div class="rec-row">
+      <input id="recInput" type="number" min="0" step="0.5" placeholder="本局得分，例如 30" inputmode="decimal">
+      <button id="recAdd" class="btn-primary">确 定</button>
+    </div>
+    <div id="statusBox" class="status st-none">
+      <div class="s-title" id="stTitle">还没有记录</div>
+      <div class="s-sub" id="stSub">打完一局在这里输得分、点「确定」，下面就会显示：还有没有三倍经验、到哪一档了。</div>
+      <div class="pwrap">
+        <div class="pbar" id="pbar"></div>
+        <div class="pmark" id="pmark" style="display:none"></div>
+        <div class="pticks" id="pticks"></div>
+      </div>
+    </div>
+    <div class="rec-meta" id="recSummary"></div>
+    <div class="rec-list" id="recList"></div>
+    <div class="rec-actions">
+      <button id="undoBtn">撤销上一局</button>
+      <button id="clearBtn">清空全部</button>
+    </div>
+  </section>
+
+  <!-- 第二条进度条：当前经验 = 起点 + ①算出的经验 -->
+  <section class="card">
+    <h2>经验进度（两条）</h2>
+    <div class="mini-row">
+      <span class="muted">当前经验（两条的起点）</span>
+      <input id="miniInput" type="number" min="0" step="1" placeholder="例如 4500" inputmode="decimal">
+      <span class="muted" id="miniFormula" style="font-size:12.5px"></span>
+    </div>
+    <div class="mini-bar-block">
+      <div class="mini-cap"><span>升级条 · 到 5,000 提示升级</span><b id="mini1Out">0 / 5,000</b></div>
+      <div class="mini-track"><div class="mini-fill" id="mini1Fill"></div><div class="mini-knob" id="mini1Knob" style="display:none"></div><div class="mini-tip" id="mini1Tip" style="display:none"></div></div>
+    </div>
+    <div class="mini-bar-block">
+      <div class="mini-cap"><span>过载条 · 只算加的经验 · 到 11,167 提示已过载</span><b id="mini2Out">0 / 11,167</b></div>
+      <div class="mini-track"><div class="mini-fill" id="mini2Fill"></div><div class="mini-knob" id="mini2Knob" style="display:none"></div><div class="mini-tip" id="mini2Tip" style="display:none"></div></div>
+    </div>
+    <div class="mini-games" id="miniGames"></div>
+  </section>
+  <section class="card">
+    <h2>游戏当前经验（第二条进度条）</h2>
+    <p class="muted" style="margin:-2px 0 12px;font-size:13px;line-height:1.75">
+      先在下面<b class="hl">输入你当前的经验</b>作为起点；上面「本局记录」每算出一局的经验，就<b class="hl">自动加上来</b>，这条进度条显示你现在总共有多少经验，<b class="hl">封顶 11,167</b>。
+      例如：输入 <b class="hl">4,500</b>，本局记录算出 <b class="hl">+1,000</b> → 这里就变成 <b class="hl">5,500</b>。累计到 <b class="hl">5,000</b> 弹出「<b class="hl">升级</b>」提示，到 <b class="hl">11,167</b> 弹出「<b class="hl">过载</b>」提示。
+    </p>
+    <div class="prof-row">
+      <span class="muted">当前经验</span>
+      <input id="profInput" type="number" min="0" step="1" placeholder="例如 4256" inputmode="decimal">
+      <span class="muted" id="profFormula" style="font-size:12.5px"></span>
+    </div>
+    <div id="profBox" class="status st-none">
+      <div class="s-title" id="profTitle">还没有经验</div>
+      <div class="s-sub" id="profSub">输入当前经验，或在上面「本局记录」里输一局得分，这里会自动累加。</div>
+      <div class="pwrap">
+        <div class="pbar" id="pbar2"></div>
+        <div class="pmark" id="pmark2" style="display:none"></div>
+        <div class="pticks" id="pticks2" style="height:30px"></div>
+      </div>
+    </div>
+  </section>
+  <div class="panel-bar"><span class="muted">面板</span><div id="panelChips"></div></div>
+  <div class="toast" id="toast" style="display:none"><b id="toastTitle"></b><span id="toastBody"></span></div>
+
+  <!-- 输入 -->
+  <section class="card extra">
+    <h2>本周累计</h2>
+    <div class="seg">
+      <button id="modeScore" class="on">休闲得分</button>
+      <button id="modeXp">原始经验</button>
+    </div>
+    <div class="big-input">
+      <input id="mainInput" type="number" min="0" step="1" value="0" inputmode="decimal">
+    </div>
+    <div class="muted" id="inputHint" style="margin-top:8px">1 分 = 4 经验（自动折算为原始经验）</div>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <!-- 结果 -->
+  <section class="card extra">
+    <h2>计算结果</h2>
+    <div class="result-top">
+      <div>
+        <div class="result-label">最终有效周经验</div>
+        <div id="finalXp">0</div>
+      </div>
+      <div class="formula" id="formulaLine"></div>
+    </div>
+    <div class="tiles">
+      <div class="tile"><div class="k">折算原始经验</div><div class="v" id="tRaw">0</div></div>
+      <div class="tile"><div class="k">加成获得</div><div class="v up" id="tBonus">+0</div></div>
+      <div class="tile"><div class="k">衰减损失</div><div class="v down" id="tLoss">−0</div></div>
+      <div class="tile"><div class="k">平均倍率</div><div class="v blue" id="tAvg">×1.00</div></div>
+      <div class="tile"><div class="k">当前所在区间</div><div class="v" id="tZone" style="font-size:15px">起点</div></div>
+      <div class="tile"><div class="k" id="tGapK">距衰减线（11,167）</div><div class="v" id="tGap" style="font-size:15px">—</div></div>
+    </div>
+  </section>
+
+  <!-- 分段明细 -->
+  <section class="card extra">
+    <h2>分段明细</h2>
+    <table>
+      <thead>
+        <tr><th>区间（到手经验分档）</th><th>占用原始经验</th><th>倍率</th><th>计入经验</th></tr>
+      </thead>
+      <tbody id="segBody"></tbody>
+    </table>
+  </section>
+
+  <!-- 图表 -->
+  <section class="card extra">
+    <h2>加成曲线（原始经验 → 有效经验）</h2>
+    <div id="chart"></div>
+    <div class="legend">
+      <span><i style="background:rgba(55,214,122,.45)"></i>三倍加成区</span>
+      <span><i style="background:rgba(77,163,255,.45)"></i>一倍加成区</span>
+      <span><i style="background:rgba(185,196,207,.35)"></i>无加成区</span>
+      <span><i style="background:rgba(255,77,79,.45)"></i>衰减区</span>
+      <span><i style="background:#ffd60a"></i>有效经验曲线</span>
+      <span><i style="background:#6b7783"></i>虚线 = 无加成基准（y = x）</span>
+    </div>
+  </section>
+
+  <!-- 反算 -->
+  <section class="card extra">
+    <h2>反算</h2>
+    <div class="rev-grid">
+      <div class="field">
+        <label>目标有效经验</label>
+        <input id="revIn" type="number" min="0" step="1" value="11167" inputmode="decimal">
+      </div>
+      <div class="out"><div class="k">需要原始经验</div><div class="v" id="revRaw">—</div></div>
+      <div class="out"><div class="k">约需休闲得分</div><div class="v" id="revScore">—</div></div>
+      <div class="out"><div class="k">比当前还需（原始经验）</div><div class="v" id="revMore">—</div></div>
+    </div>
+  </section>
+
+  <!-- 参数 -->
+  <section class="card extra">
+    <h2>参数设置</h2>
+    <div class="params">
+      <div class="param">
+        <label>分界：三倍 → 一倍</label>
+        <input id="p_b1" type="number" min="0" step="100" value="4500">
+        <div class="quick">
+          <button data-set="p_b1" data-val="4500">按刻度 4500</button>
+          <button data-set="p_b1" data-val="5000">按圈线 5000</button>
+        </div>
+      </div>
+      <div class="param">
+        <label>分界：一倍 → 无加成</label>
+        <input id="p_b2" type="number" min="0" step="100" value="7500">
+      </div>
+      <div class="param">
+        <label>分界：无加成 → 衰减</label>
+        <input id="p_b3" type="number" min="0" step="1" value="11167">
+      </div>
+      <div class="param">
+        <label>第一段倍率（三倍区总倍率）</label>
+        <input id="p_m1" type="number" min="0" step="0.5" value="4">
+        <div class="quick">
+          <button data-set="p_m1" data-val="4">按图纸 1+3 = ×4</button>
+          <button data-set="p_m1" data-val="3">只算 ×3</button>
+        </div>
+      </div>
+      <div class="param">
+        <label>第二段倍率（图纸 1+1）</label>
+        <input id="p_m2" type="number" min="0" step="0.5" value="2">
+      </div>
+      <div class="param">
+        <label>第三段倍率（无加成）</label>
+        <input id="p_m3" type="number" min="0" step="0.5" value="1">
+      </div>
+      <div class="param">
+        <label>衰减档按原经验的 % 计入（17.5 = ×0.175）</label>
+        <input id="p_decay" type="number" min="0" max="100" step="0.5" value="17.5">
+      </div>
+      <div class="param">
+        <label>休闲 1 分 = 经验</label>
+        <input id="p_rate" type="number" min="0" step="0.5" value="4">
+      </div>
+      <div class="param">
+        <label>每局基准分（局数估算用，默认 113）</label>
+
+        <input id="p_per" type="number" min="0" step="1" value="113">
+      </div>
+    </div>
+    <div class="actions"><button class="btn" id="resetBtn">恢复默认参数</button></div>
+  </section>
+  </div>
+  </div>
+
+  <footer>
+    <ul>
+      <li>分档以到手经验计（边际）：前 <b class="hl">4,500</b> 三倍 ×4，4,500–7,500 一倍 ×2，之后无加成 ×1，超过 <b class="hl">11,167</b> 按 17.5% 计入。</li>
+      <li>休闲 1 分 = 4 经验，单局基础经验上限 450（约 <b class="hl">113 分</b>）。</li>
+      <li>本局记录和经验进度分开存在浏览器本地，刷新不丢；左侧可<b class="hl">多开副本</b>（右键删、重置副本清空当前副本）。</li>
+      <li>参数设置里的分界线、倍率、衰减、每局基准分都能改，即时生效。</li>
+    </ul>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var DEFAULTS = {b1:4500, b2:7500, b3:11167, m1:4, m2:2, m3:1, decay:17.5, rate:4, per:113};
+  var P = Object.assign({}, DEFAULTS);
+  var mode = "score";   // score | xp
+  var raw = 0;          // 原始经验（分段轴）
+
+  function $(id){ return document.getElementById(id); }
+  function fmt(n, d){
+    if(!isFinite(n)) return "∞";
+    d = d || 0;
+    return Number(n).toLocaleString("zh-CN", {minimumFractionDigits:0, maximumFractionDigits:d});
+  }
+  function cleanNum(n){
+    if(!isFinite(n)) return "∞";
+    var r = Math.round(n * 1000) / 1000;
+    return String(r);
+  }
+  function niceUp(v){
+    if(!(v > 0)) return 1;
+    var mag = Math.pow(10, Math.floor(Math.log10(v)));
+    var step = mag / 2;
+    return Math.ceil(v / step) * step;
+  }
+
+  /* ---------- 核心：分段（边际）计算 ---------- */
+  function zones(){
+    var d = P.decay / 100;   // 衰减 = 按 17.5% 计入（×0.175）
+    if(d < 0) d = 0;
+    if(d > 1) d = 1;
+    // from/to 是「到手经验」分档线：前 4,500 到手经验内为三倍档
+    return [
+      {name:"三倍加成", from:0,        to:P.b1, m:P.m1, color:"#37d67a", band:"rgba(55,214,122,.10)"},
+      {name:"一倍加成", from:P.b1,     to:P.b2, m:P.m2, color:"#4da3ff", band:"rgba(77,163,255,.10)"},
+      {name:"无加成",   from:P.b2,     to:P.b3, m:P.m3, color:"#b9c4cf", band:"rgba(185,196,207,.06)"},
+      {name:"衰减",     from:P.b3,     to:Infinity, m:d, color:"#ff7a7c", band:"rgba(255,77,79,.10)"}
+    ];
+  }
+  function zoneLabel(z, i){
+    if(i === 3) return "衰减 ×" + cleanNum(P.decay / 100);
+    return z.name + " ×" + cleanNum(z.m);
+  }
+  /* 从到手经验 x0 起投入 rawLen 原始经验，按到手经验分档逐段折算
+     例：1 分 = 4 原始 → 三倍档内 4×4 = 16 到手；三倍额度剩 4,500 − 16 = 4,484 */
+  function walk(x0, rawLen){
+    var zs = zones(), rows = [], x = Math.max(0, x0), rem = Math.max(0, rawLen);
+    var zi = 0, eff = 0, bonus = 0, loss = 0;
+    while(zi < zs.length - 1 && x >= zs[zi].to - 1e-9) zi++;   // 起点所在档
+    while(rem > 1e-9 && zi < zs.length){
+      var z = zs[zi];
+      var room = isFinite(z.to) ? (z.to - x) / z.m : Infinity;  // 本档还能吃多少原始经验
+      if(!(room > 0)){ zi++; continue; }
+      var take = Math.min(rem, room);
+      var gain = take * z.m;
+      eff += gain;
+      if(zi === 3){ loss += take * (1 - z.m); }
+      else { bonus += gain - take; }
+      rows.push({z:z, used:take, gain:gain, idx:zi});
+      x += gain; rem -= take;
+      if(isFinite(z.to) && x >= z.to - 1e-9) zi++;
+    }
+    return {rows:rows, eff:eff, bonus:bonus, loss:loss};
+  }
+  /* 累计原始经验 → 到手（有效）经验 */
+  function breakdown(x){ return walk(0, x); }
+  /* 反算：目标到手经验 → 所需原始经验 */
+  function inverse(target){
+    if(!(target > 0)) return 0;
+    var zs = zones(), rem = target, rawNeed = 0;
+    for(var i = 0; i < zs.length; i++){
+      var z = zs[i];
+      var w = isFinite(z.to) ? Math.max(0, z.to - z.from) : Infinity;  // 本档可提供的到手经验
+      var m = z.m;
+      if(isFinite(w)){
+        if(rem <= w) return rawNeed + (m > 0 ? rem / m : Infinity);
+        rem -= w;
+        rawNeed += (m > 0 ? w / m : Infinity);
+        if(!(rawNeed < Infinity)) return Infinity;
+      } else {
+        return (m > 0) ? rawNeed + rem / m : Infinity;
+      }
+    }
+    return rem > 0 ? Infinity : rawNeed;
+  }
+  function zoneAt(x){
+    if(x <= 0) return "起点";
+    if(x < P.b1) return "三倍加成区间";
+    if(x < P.b2) return "一倍加成区间";
+    if(x < P.b3) return "无加成区间";
+    return "衰减区间";
+  }
+
+  /* ---------- 图表 ---------- */
+  function drawChart(eff){
+    var W = 860, H = 330, ml = 64, mr = 26, mt = 22, mb = 64;
+    var pw = W - ml - mr, ph = H - mt - mb;
+    var xMax = niceUp(Math.max(inverse(P.b3) * 1.18, raw * 1.12, 1200));
+    var yMax = niceUp(Math.max(breakdown(xMax).eff, 100));
+    var sx = function(v){ return ml + v / xMax * pw; };
+    var sy = function(v){ return mt + ph - v / yMax * ph; };
+    var axisY = mt + ph;
+    var s = [];
+
+    s.push('<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Microsoft YaHei, sans-serif">');
+    s.push('<defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="#ffd60a" stop-opacity=".30"/>' +
+      '<stop offset="1" stop-color="#ffd60a" stop-opacity="0"/></linearGradient></defs>');
+
+    // 区域底色（横轴为原始经验：分档线换算到原始经验位置）
+    var zs = zones();
+    var bx = [0, inverse(P.b1), inverse(P.b2), inverse(P.b3)];
+    for(var i = 0; i < zs.length; i++){
+      var xa = sx(Math.max(0, Math.min(bx[i], xMax)));
+      var xb = sx(Math.min(i < 3 ? bx[i + 1] : xMax, xMax));
+      if(xb > xa) s.push('<rect x="' + xa.toFixed(1) + '" y="' + mt + '" width="' + (xb - xa).toFixed(1) +
+        '" height="' + ph + '" fill="' + zs[i].band + '"/>');
+    }
+
+    // 水平网格
+    var gridVals = [0, yMax / 2, yMax];
+    for(var g = 0; g < gridVals.length; g++){
+      var gy = sy(gridVals[g]);
+      s.push('<line x1="' + ml + '" y1="' + gy.toFixed(1) + '" x2="' + (W - mr) + '" y2="' + gy.toFixed(1) +
+        '" stroke="' + (gridVals[g] === 0 ? "#e8edf2" : "#20272f") + '" stroke-width="1"/>');
+      s.push('<text x="' + (ml - 8) + '" y="' + (gy + 4).toFixed(1) + '" text-anchor="end" fill="#8b98a5" font-size="11">' +
+        fmt(gridVals[g]) + '</text>');
+    }
+
+    // y = x 基准虚线
+    var t = Math.min(xMax, yMax);
+    s.push('<line x1="' + sx(0) + '" y1="' + sy(0) + '" x2="' + sx(t).toFixed(1) + '" y2="' + sy(t).toFixed(1) +
+      '" stroke="#6b7783" stroke-width="1.2" stroke-dasharray="5 5"/>');
+
+    // 折线点
+    var bps = [0, bx[1], bx[2], bx[3], xMax, raw];
+    var pts = [];
+    for(var b = 0; b < bps.length; b++){
+      var v = bps[b];
+      if(v < 0 || v > xMax) continue;
+      if(pts.indexOf(v) === -1) pts.push(v);
+    }
+    pts.sort(function(a, c){ return a - c; });
+    var line = [], area = [];
+    for(var k = 0; k < pts.length; k++){
+      var px = sx(pts[k]).toFixed(1), py = sy(breakdown(pts[k]).eff).toFixed(1);
+      line.push(px + "," + py);
+      area.push(px + "," + py);
+    }
+    area.push(sx(xMax).toFixed(1) + "," + sy(0).toFixed(1));
+    area.push(sx(0).toFixed(1) + "," + sy(0).toFixed(1));
+    s.push('<polygon points="' + area.join(" ") + '" fill="url(#ag)"/>');
+    s.push('<polyline points="' + line.join(" ") + '" fill="none" stroke="#ffd60a" stroke-width="2.5" stroke-linejoin="round"/>');
+
+    // 分界虚线 + 红色刻度数字（仿原图纸；红字为到手经验分档线，虚线落在对应原始经验位置）
+    var marks = [{v:P.b1, ref:false}, {v:P.b2, ref:false}, {v:P.b3, ref:false}];
+    var iv5k = inverse(5000);
+    if(P.b1 !== 5000 && iv5k <= xMax) marks.push({v:5000, ref:true});
+    for(var q = 0; q < marks.length; q++){
+      var mv = marks[q].v, mRaw = inverse(mv), mx = sx(mRaw);
+      var yTop = sy(breakdown(mRaw).eff);
+      s.push('<line x1="' + mx.toFixed(1) + '" y1="' + yTop.toFixed(1) + '" x2="' + mx.toFixed(1) + '" y2="' + axisY.toFixed(1) +
+        '" stroke="' + (marks[q].ref ? "rgba(255,77,79,.45)" : "rgba(255,255,255,.28)") + '" stroke-width="1" stroke-dasharray="3 3"/>');
+      // 参考标注（5000）写在轴上方，避免与 4500 刻度重叠，且与原图纸一致
+      var lblYPos = marks[q].ref ? (axisY - 7) : (axisY + 17);
+      s.push('<text x="' + mx.toFixed(1) + '" y="' + lblYPos + '" text-anchor="middle" fill="#ff4d4f" font-size="12.5" font-weight="700" opacity="' +
+        (marks[q].ref ? ".7" : "1") + '">' + fmt(mv) + (marks[q].ref ? "*" : "") + '</text>');
+      if(!marks[q].ref){
+        s.push('<text x="' + mx.toFixed(1) + '" y="' + (axisY + 31) + '" text-anchor="middle" fill="#8b98a5" font-size="10.5">原始 ' + fmt(mRaw) + '</text>');
+      }
+    }
+    s.push('<text x="' + sx(0) + '" y="' + (axisY + 17) + '" text-anchor="middle" fill="#ff4d4f" font-size="12.5" font-weight="700">0</text>');
+
+    // 区段名称（轴下方，仿图纸）
+    var lblY = axisY + 50;
+    for(var zi = 0; zi < zs.length; zi++){
+      var za = sx(Math.max(0, Math.min(bx[zi], xMax)));
+      var zb = sx(Math.min(zi < 3 ? bx[zi + 1] : xMax, xMax));
+      if(zb - za < 58) continue;
+      s.push('<text x="' + ((za + zb) / 2).toFixed(1) + '" y="' + lblY + '" text-anchor="middle" fill="' + zs[zi].color +
+        '" font-size="12.5" font-weight="600">' + zoneLabel(zs[zi], zi) + '</text>');
+    }
+
+    // 当前位置标记
+    if(raw > 0){
+      var cx = sx(raw), cy = sy(eff);
+      s.push('<line x1="' + cx.toFixed(1) + '" y1="' + cy.toFixed(1) + '" x2="' + cx.toFixed(1) + '" y2="' + axisY.toFixed(1) +
+        '" stroke="rgba(255,214,10,.45)" stroke-width="1" stroke-dasharray="2 3"/>');
+      s.push('<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="5.5" fill="#ffd60a" stroke="#0a0d11" stroke-width="2"/>');
+      var lblAnchor = cx > W - 120 ? "end" : (cx < 100 ? "start" : "middle");
+      s.push('<text x="' + cx.toFixed(1) + '" y="' + (cy - 12).toFixed(1) + '" text-anchor="' + lblAnchor +
+        '" fill="#ffd60a" font-size="13" font-weight="700">' + fmt(eff) + '</text>');
+    }
+
+    s.push('<text x="' + (W - mr) + '" y="' + (mt + 12) + '" text-anchor="end" fill="#8b98a5" font-size="11">原始经验 X →</text>');
+    s.push('<text x="' + ml + '" y="' + (mt - 8) + '" fill="#8b98a5" font-size="11">有效经验 ↑</text>');
+    s.push('</svg>');
+    $("chart").innerHTML = s.join("");
+  }
+
+  /* ---------- 渲染 ---------- */
+  function readInput(){
+    var v = parseFloat($("mainInput").value);
+    if(!isFinite(v) || v < 0) v = 0;
+    if(!isFinite(P.rate) || P.rate <= 0) P.rate = DEFAULTS.rate;
+    raw = (mode === "score") ? v * P.rate : v;
+  }
+  function render(){
+    readInput();
+    var r = breakdown(raw);
+    var eff = r.eff;
+    var scoreVal = parseFloat($("mainInput").value);
+    if(!isFinite(scoreVal)) scoreVal = 0;
+
+    $("finalXp").textContent = fmt(eff);
+    $("tRaw").textContent = fmt(raw);
+    $("tBonus").textContent = "+" + fmt(r.bonus);
+    $("tLoss").textContent = "−" + fmt(r.loss);
+    $("tAvg").textContent = raw > 0 ? "×" + (eff / raw).toFixed(2) : "×1.00";
+    $("tZone").textContent = zoneAt(eff);
+    var gapTile = $("tGap");
+    if(eff < P.b3){
+      gapTile.textContent = "还差 " + fmt(P.b3 - eff) + " 经验";
+      gapTile.className = "v";
+    } else {
+      gapTile.textContent = "已超出 " + fmt(eff - P.b3) + " 经验";
+      gapTile.className = "v down";
+    }
+    $("tGapK").textContent = (eff < P.b3 ? "距衰减线" : "超出衰减线") + "（" + fmt(P.b3) + "）";
+
+    $("formulaLine").innerHTML =
+      (mode === "score" ? "休闲 " + fmt(scoreVal, 2) + " 分 × " + cleanNum(P.rate) + " = " + fmt(raw) + " 原始经验<br>" : "原始经验 " + fmt(raw) + "<br>") +
+      "原始 " + fmt(raw) + " → 有效 <b style='color:#ffd60a'>" + fmt(eff) + "</b>";
+
+    // 分段明细表
+    var activeZone = raw <= 0 ? 0 : (eff < P.b1 ? 0 : (eff < P.b2 ? 1 : (eff < P.b3 ? 2 : 3)));
+    var html = "";
+    for(var i = 0; i < r.rows.length; i++){
+      var row = r.rows[i], z = row.z;
+      var range = isFinite(z.to) ? (fmt(z.from) + " ~ " + fmt(z.to)) : (fmt(z.from) + " 以上");
+      var cls = (row.idx === activeZone ? "active" : (row.used <= 0 ? "dim" : ""));
+      html += '<tr class="' + cls + '">' +
+        '<td><span class="tag" style="background:' + z.band + ';color:' + z.color + '">' + zoneLabel(z, i) + '</span> ' + range + '</td>' +
+        '<td>' + fmt(row.used) + '</td>' +
+        '<td>×' + cleanNum(z.m) + '</td>' +
+        '<td>' + fmt(row.gain) + '</td></tr>';
+    }
+    $("segBody").innerHTML = html;
+
+    // 快捷节点 chips
+    var chipDefs = [
+      {label:"打到三倍上限", v:P.b1},
+      {label:"打到一倍上限", v:P.b2},
+      {label:"打到衰减线",   v:P.b3}
+    ];
+    var chips = "";
+    for(var c = 0; c < chipDefs.length; c++){
+      var vv = inverse(chipDefs[c].v);                     // 到达该到手经验上限所需原始经验
+      var shown = (mode === "score") ? fmt(vv / P.rate, 2) + " 分" : fmt(vv) + " 经验";
+      chips += '<button class="chip" data-val="' + vv + '">' + chipDefs[c].label + '：' + shown + '</button>';
+    }
+    $("chips").innerHTML = chips;
+
+    // 反算
+    var target = parseFloat($("revIn").value);
+    if(!isFinite(target) || target < 0) target = 0;
+    var need = inverse(target);
+    $("revRaw").textContent = fmt(need);
+    $("revScore").textContent = isFinite(need) ? fmt(need / P.rate, 2) + " 分" : "—";
+    var more = need - raw;
+    $("revMore").textContent = !isFinite(need) ? "∞" : (more > 0 ? fmt(more) : "已达成");
+
+    drawChart(eff);
+    renderRecords();
+    renderProf();
+    // 记住当前副本③里手动输入的累计值
+    var mv = parseFloat($("mainInput").value);
+    var mval = isFinite(mv) ? mv : null;
+    if(mval !== slotMain){ slotMain = mval; slotSave(); }
+  }
+
+  /* ---------- 多开副本：左侧栏，可任意添加 ---------- */
+  var SLOT_KEY = "wxp_slot_v1_", SLOTS_KEY = "wxp_slots_v1";
+  var slot = 1, slots = [1, 2, 3];
+  var records = [];          // 当前副本的本局记录
+  var slotBase = 0;          // 当前副本②的起点经验
+  var slotMain = null;       // 当前副本③里的手动输入值（null = 跟随记录自动汇总）
+  function cnNum(n){
+    var d = "零一二三四五六七八九";
+    if(n < 10) return d[n];
+    if(n === 10) return "十";
+    if(n < 20) return "十" + d[n - 10];
+    return d[Math.floor(n / 10)] + "十" + (n % 10 ? d[n % 10] : "");
+  }
+  function slotName(n){ return "副本" + cnNum(n); }
+  function loadSlots(){
+    slots = [1, 2, 3];
+    try{
+      var a = JSON.parse(localStorage.getItem(SLOTS_KEY) || "null");
+      if(Array.isArray(a)){
+        var ok = a.filter(function(x){ return isFinite(x) && x >= 1; });
+        if(ok.length) slots = ok;
+      }
+    }catch(e){}
+  }
+  function saveSlots(){ try{ localStorage.setItem(SLOTS_KEY, JSON.stringify(slots)); }catch(e){} }
+  function slotBrief(n){
+    try{
+      var o = JSON.parse(localStorage.getItem(SLOT_KEY + n) || "null");
+      if(o && typeof o === "object"){
+        return { recs: Array.isArray(o.recs) ? o.recs.length : 0, base: (isFinite(o.base) && o.base >= 0) ? o.base : 0 };
+      }
+    }catch(e){}
+    return { recs: 0, base: 0 };
+  }
+  function renderSlotBar(){
+    var html = "";
+    for(var i = 0; i < slots.length; i++){
+      var n = slots[i], b = slotBrief(n);
+      html += '<button type="button" class="slot-btn' + (n === slot ? " on" : "") + '" data-slot="' + n + '" title="点击切换 · 右键删除此副本">' +
+        "<b>" + slotName(n) + "</b><i>" + (b.recs ? (b.recs + " 局 · 起点 " + fmt(b.base)) : "空") + "</i></button>";
+    }
+    $("slotList").innerHTML = html;
+    $("slotAdd").style.display = slots.length >= 12 ? "none" : "";
+  }
+  function addSlot(){
+    var next = 1;
+    for(var i = 0; i < slots.length; i++){ if(slots[i] >= next) next = slots[i] + 1; }
+    slots.push(next);
+    saveSlots();
+    switchSlot(next);
+    renderSlotBar();
+  }
+  /* 右键删除副本（记录、经验一并清掉；至少保留一个） */
+  function delSlot(n){
+    if(slots.indexOf(n) < 0) return;
+    if(slots.length <= 1){ window.alert("至少保留一个副本。"); return; }
+    if(!window.confirm("确定删除「" + slotName(n) + "」？该副本的记录和经验会一并清掉，不可恢复。")) return;
+    slots.splice(slots.indexOf(n), 1);
+    saveSlots();
+    try{ localStorage.removeItem(SLOT_KEY + n); }catch(e){}
+    if(slot === n){
+      slot = slots[0];
+      slotLoad();
+      if(slotMain !== null){ $("mainInput").value = String(Math.round(slotMain * 100) / 100); }
+      else if(records.length){ syncInputToRecords(); }
+      else { $("mainInput").value = "0"; }
+      $("profInput").value = slotBase ? String(Math.round(slotBase * 100) / 100) : "";
+      render();
+    }
+    renderSlotBar();
+  }
+  /* 重置当前副本（数据清空，副本保留） */
+  function resetSlot(){
+    if(!window.confirm("确定重置「" + slotName(slot) + "」？该副本的记录和经验都会清空（副本本身保留）。")) return;
+    records = []; slotBase = 0; slotMain = null;
+    slotSave();
+    $("mainInput").value = "0";
+    $("profInput").value = "";
+    render();
+  }
+  function slotLoad(){
+    records = []; slotBase = 0; slotMain = null;
+    try{
+      var s = localStorage.getItem(SLOT_KEY + slot);
+      if(s){
+        var o = JSON.parse(s);
+        if(o && typeof o === "object"){
+          if(Array.isArray(o.recs)) records = o.recs.filter(function(r){ return r && isFinite(r.s) && r.s >= 0; });
+          if(isFinite(o.base) && o.base >= 0) slotBase = o.base;
+          if(o.main !== null && o.main !== undefined && isFinite(o.main)) slotMain = o.main;
+        }
+      } else if(slot === 1){
+        /* 迁移旧版数据（wxp_records_v1 / wxp_profile_v2）到副本一 */
+        try{
+          var oldR = localStorage.getItem("wxp_records_v1");
+          if(oldR){
+            var arr = JSON.parse(oldR);
+            if(Array.isArray(arr)) records = arr.filter(function(r){ return r && isFinite(r.s) && r.s >= 0; });
+          }
+          var oldP = localStorage.getItem("wxp_profile_v2");
+          if(oldP){
+            var po = JSON.parse(oldP);
+            if(po && typeof po === "object" && isFinite(po.base) && po.base >= 0) slotBase = po.base;
+          }
+        }catch(e){}
+        if(records.length || slotBase > 0){
+          slotSave();
+          try{ localStorage.removeItem("wxp_records_v1"); localStorage.removeItem("wxp_profile_v2"); }catch(e){}
+        }
+      }
+    }catch(e){}
+  }
+  function slotSave(){
+    try{ localStorage.setItem(SLOT_KEY + slot, JSON.stringify({recs:records, base:slotBase, main:slotMain})); }catch(e){}
+  }
+  function switchSlot(n){
+    if(n === slot) return;
+    slot = n;
+    slotLoad();
+    if(slotMain !== null){
+      $("mainInput").value = String(Math.round(slotMain * 100) / 100);
+    } else if(records.length){
+      syncInputToRecords();
+    } else {
+      $("mainInput").value = "0";
+    }
+    $("profInput").value = slotBase ? String(Math.round(slotBase * 100) / 100) : "";
+    renderSlotBar();
+    render();
+  }
+  function saveRecs(){ slotSave(); }
+  function totalScore(){ var t = 0; for(var i = 0; i < records.length; i++) t += records[i].s; return t; }
+  function syncInputToRecords(){
+    var t = totalScore(), rate = P.rate || DEFAULTS.rate;
+    var v = (mode === "xp") ? t * rate : t;
+    $("mainInput").value = String(Math.round(v * 100) / 100);
+  }
+  function shortZone(x){
+    var e = breakdown(x).eff;
+    if(x <= 0) return "起点";
+    if(e < P.b1) return "三倍";
+    if(e < P.b2) return "一倍";
+    if(e < P.b3) return "无加成";
+    return "衰减";
+  }
+  function timeStr(ts){
+    var d = new Date(ts);
+    function p(n){ return (n < 10 ? "0" : "") + n; }
+    return p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  function renderRecords(){
+    var rate = P.rate || DEFAULTS.rate;
+    var total = totalScore();
+    var hasRec = records.length > 0;
+    var rawR = total * rate;
+    var pInfo = barRowsInfo();                      // 正在输入的分（预览）
+    var statusRaw = hasRec ? rawR : raw;
+    if(pInfo && pInfo.preview) statusRaw = (hasRec ? rawR : 0) + pInfo.base;   // 预览时状态跟着算（原始经验口径）
+    var last = hasRec ? records[records.length - 1].s : 0;
+
+    $("recSummary").textContent = hasRec
+      ? ("共 " + records.length + " 局 · 总分 " + fmt(total, 2) + " 分 · 原始经验 " + fmt(rawR) +
+         " · 有效经验 " + fmt(breakdown(rawR).eff) + " · 平均每局 " + fmt(total / records.length, 1) + " 分")
+      : "";
+
+    // 状态横幅
+    var cls = "status ", title, sub;
+    function games(nScore){ return (last > 0 && isFinite(nScore)) ? Math.max(0, Math.floor(nScore / last)) : -1; }
+    var src = hasRec ? "" : "（按手动输入计算）";
+    var effS = breakdown(statusRaw).eff;                 // 当前到手经验（分档、剩余额度都按它算）
+    if(!hasRec && statusRaw <= 0){
+      cls += "st-none";
+      title = "还没有记录";
+      sub = "打完一局在这里输得分、点「确定」，下面就会显示：还有没有三倍经验、到哪一档了。";
+    } else if(effS < P.b1){
+      cls += "st-green";
+      title = "★ 三倍加成中（0 ~ " + fmt(P.b1) + "）";
+      var gap1 = P.b1 - effS, s1 = gap1 / P.m1 / rate, g1 = games(s1);
+      sub = "距用完三倍额度还差 " + fmt(gap1) + " 经验（≈ " + fmt(s1, 2) + " 分）" +
+        (src || (g1 >= 0 ? "；按最近一局 " + fmt(last, 1) + " 分，还能打 " + g1 + " 局三倍" : ""));
+    } else if(effS < P.b2){
+      cls += "st-blue";
+      title = "● 一倍加成中（" + fmt(P.b1) + " ~ " + fmt(P.b2) + "）";
+      var gap2 = P.b2 - effS, s2 = gap2 / P.m2 / rate, g2 = games(s2);
+      sub = "三倍额度已用完；距无加成还差 " + fmt(gap2) + " 经验（≈ " + fmt(s2, 2) + " 分）" +
+        (src || (g2 >= 0 ? "；按最近一局还能打 " + g2 + " 局" : ""));
+    } else if(effS < P.b3){
+      cls += "st-gray";
+      title = "○ 无加成区间（" + fmt(P.b2) + " ~ " + fmt(P.b3) + "）";
+      var gap3 = P.b3 - effS, s3 = gap3 / P.m3 / rate;
+      sub = "距衰减线还差 " + fmt(gap3) + " 经验（≈ " + fmt(s3, 2) + " 分），再往前就开始衰减" + src;
+    } else {
+      cls += "st-red";
+      title = "✖ 已进入衰减（超过 " + fmt(P.b3) + "）";
+      var over = effS - P.b3;
+      sub = "超出的 " + fmt(over) + " 经验只按 " + cleanNum(P.decay) +
+        "%（×" + cleanNum(P.decay / 100) + "）计入，这部分已缩水 " + fmt(breakdown(statusRaw).loss) + " 点经验" + src;
+    }
+    var box = $("statusBox");
+    box.className = cls;
+    $("stTitle").textContent = title;
+    $("stSub").textContent = sub;
+
+    // 进度条（算式直接显示在对应档位里）
+    var D = computeD();
+    renderBar();
+
+    // 游标（到手经验轴）：显示「原本 + 本局 = 合计」（输入时预览，确定后显示累计）
+    var mk = $("pmark");
+    var mkPos = effS, mkTxt = fmt(effS);
+    if(pInfo && pInfo.preview){
+      mkPos = pInfo.from + pInfo.total;
+      mkTxt = fmt(pInfo.from) + " + " + fmt(pInfo.total) + " = " + fmt(mkPos);
+    }
+    if(mkPos > 0){
+      mk.style.display = "block";
+      var mkPct = Math.min(mkPos / D * 100, 100);
+      mk.style.left = mkPct.toFixed(2) + "%";
+      mk.innerHTML = "<em>" + mkTxt + "</em>";
+      var emEl = mk.firstChild;
+      if(mkPct < 6){ emEl.style.left = "0"; emEl.style.transform = "none"; }              // 靠左时不越出边框
+      else if(mkPct > 94){ emEl.style.left = "auto"; emEl.style.right = "0"; emEl.style.transform = "none"; }  // 靠右同理
+    } else {
+      mk.style.display = "none";
+    }
+    var tk = "", tickVals = [P.b1, P.b2, P.b3];
+    for(var ti = 0; ti < tickVals.length; ti++){
+      tk += '<i style="left:' + Math.min(tickVals[ti] / D * 100, 100).toFixed(2) + '%"><b>' + fmt(tickVals[ti]) + '</b></i>';
+    }
+    $("pticks").innerHTML = tk;
+
+    // 记录列表（最新在上，含每局后累计）
+    var html = "";
+    if(!hasRec){
+      html = '<div class="rec-empty">还没有记录：打完一局 → 输得分 → 点「确定」</div>';
+    } else {
+      var cum = 0, arr = [];
+      for(var i = 0; i < records.length; i++){
+        cum += records[i].s;
+        arr.push({i:i, s:records[i].s, t:records[i].t, cum:cum});
+      }
+      html = '<table><thead><tr><th>#</th><th>时间</th><th>得分</th><th>折算经验</th><th>累计原始</th><th>有效经验</th><th>区间</th><th></th></tr></thead><tbody>';
+      for(var j = arr.length - 1; j >= 0; j--){
+        var it = arr[j], r0 = it.cum * rate, e0 = breakdown(r0).eff;
+        html += '<tr' + (it.i === records.length - 1 ? ' class="active"' : '') + '>' +
+          '<td>' + (it.i + 1) + '</td>' +
+          '<td>' + timeStr(it.t) + '</td>' +
+          '<td>' + fmt(it.s, 1) + '</td>' +
+          '<td style="color:#37d67a">+' + fmt(it.s * rate) + '</td>' +
+          '<td>' + fmt(r0) + '</td>' +
+          '<td>' + fmt(e0) + '</td>' +
+          '<td>' + shortZone(r0) + '</td>' +
+          '<td><button class="del" data-i="' + it.i + '">删除</button></td></tr>';
+      }
+      html += '</tbody></table>';
+    }
+    $("recList").innerHTML = html;
+    $("undoBtn").disabled = !hasRec;
+    $("clearBtn").disabled = !hasRec;
+    renderProf();                       // ②跟着①的输分预览实时走
+    renderMini();                       // 「当前经验」进度条也跟着①实时走
+  }
+
+  /* 本局算式直接显示在进度条对应档位里：输分即预览，确定后保留上一局 */
+  /* 本局拆档：从 from（到手经验位置）投入 len 原始经验，按档拆开 */
+  function splitGain(from, len){
+    if(!(len > 0)) return [];
+    return walk(from, len).rows;
+  }
+  function barRowsInfo(){
+    var rate = P.rate || DEFAULTS.rate;
+    var v = parseFloat($("recInput").value);
+    var hasRec = records.length > 0;
+    var preview = isFinite(v) && v > 0;
+    var score, from;                        // from = 本局开始时的到手经验位置
+    if(preview){
+      score = v; from = hasRec ? breakdown(totalScore() * rate).eff : 0;
+    } else if(hasRec){
+      score = records[records.length - 1].s;
+      from = breakdown((totalScore() - score) * rate).eff;
+    } else {
+      return null;
+    }
+    var base = score * rate;
+    var rows = splitGain(from, base), total = 0;
+    for(var i = 0; i < rows.length; i++) total += rows[i].gain;
+    return {score:score, base:base, rows:rows, total:total, rate:rate, from:from, preview:preview};
+  }
+  function segCalc(r, info){
+    var names = ["三倍", "一倍", "无加成", "衰减"];
+    var z = r.z;
+    var head = names[r.idx] + " ×" + cleanNum(z.m);
+    if(info.rows.length === 1){
+      var baseTxt = fmt(info.score, 1) + "×" + cleanNum(info.rate) + "=" + fmt(info.base);
+      if(r.idx === 3){
+        return head + " ｜ " + baseTxt + " → 到手 " + fmt(info.total);
+      }
+      if(z.m > 1){
+        return head + " ｜ " + baseTxt + " → " + fmt(info.base) + "×" + cleanNum(z.m - 1) +
+          "=+" + fmt(info.total - info.base) + " → 到手 " + fmt(info.total);
+      }
+      return head + " ｜ " + baseTxt + " → 到手 " + fmt(info.total);
+    }
+    if(r.idx === 3) return head + " ｜ " + fmt(r.used) + "×" + cleanNum(z.m) + "=" + fmt(r.gain);
+    if(z.m > 1) return head + " ｜ " + fmt(r.used) + "×" + cleanNum(z.m - 1) + "=+" + fmt(r.gain - r.used);
+    return head + " ｜ " + fmt(r.used) + "×1";
+  }
+  function computeD(){
+    var D = Math.max(P.b3 * 1.12, 1);
+    var info = barRowsInfo();
+    if(info){
+      // 让本局落点和当前位置都在条内（info.from / info.total 均为到手经验）
+      D = Math.max(D, (info.from + info.total) * 1.05,
+        breakdown(totalScore() * (P.rate || DEFAULTS.rate)).eff * 1.03, 1);
+    }
+    return D;
+  }
+  function renderBar(){
+    var info = barRowsInfo();
+    var D = computeD();
+    var rowBy = {};
+    if(info){
+      for(var i = 0; i < info.rows.length; i++) rowBy[info.rows[i].idx] = info.rows[i];
+    }
+    var segDefs = [
+      {a:0,    b:P.b1, c:"rgba(55,214,122,.55)",  t:"三倍"},
+      {a:P.b1, b:P.b2, c:"rgba(77,163,255,.5)",   t:"一倍"},
+      {a:P.b2, b:P.b3, c:"rgba(185,196,207,.32)", t:"无加成"},
+      {a:P.b3, b:D,    c:"rgba(255,77,79,.5)",    t:"衰减"}
+    ];
+    var bar = "";
+    for(var si = 0; si < segDefs.length; si++){
+      var lo = Math.min(Math.max(segDefs[si].a, 0), D);
+      var hi = Math.min(Math.max(segDefs[si].b, 0), D);
+      var pctW = Math.max(0, (hi - lo) / D * 100);
+      var segT = segDefs[si].t;   // 只显示档位名，算式链隐藏
+      bar += '<span style="width:' + pctW.toFixed(2) + '%;background:' + segDefs[si].c + '">' + segT + '</span>';
+    }
+    $("pbar").innerHTML = bar;
+  }
+
+  /* ---------- 第二条进度条：当前经验 = 起点 + ①算出的经验 ---------- */
+  var profPrev = 0, profFirst = true, toastTimer = null;
+  var MIL_UP = 5000, MIL_OVER = 11167;      // 里程碑：累计到 5,000 弹「升级」，到 11,167 弹「过载」
+  function showToast(title, body, cls){
+    var t = $("toast");
+    $("toastTitle").textContent = title;
+    $("toastBody").textContent = body;
+    t.className = "toast " + (cls || "");
+    t.style.display = "flex";
+    if(toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.style.display = "none"; }, 5000);
+  }
+  $("toast").addEventListener("click", function(){ this.style.display = "none"; });
+  function renderProf(){
+    // ① 当前算出的到手经验（含输分预览；确定后由记录正式算入）
+    var rate = P.rate || DEFAULTS.rate;
+    var tRaw = totalScore() * rate;
+    var pv = parseFloat($("recInput").value);
+    var topRaw = (isFinite(pv) && pv > 0) ? tRaw + pv * rate : tRaw;
+    var topEff = breakdown(topRaw).eff;
+    var v = slotBase + topEff;                       // 起点 + 上面的经验 = 当前经验
+    var D2 = Math.max(P.b3, 1);                     // 封顶 11,167：整条就是 0 ~ 11,167 的满刻度
+    var segDefs = [
+      {a:0,    b:P.b1, c:"rgba(55,214,122,.55)",  t:"三倍 ×" + cleanNum(P.m1)},
+      {a:P.b1, b:P.b2, c:"rgba(77,163,255,.5)",   t:"一倍 ×" + cleanNum(P.m2)},
+      {a:P.b2, b:P.b3, c:"rgba(185,196,207,.32)", t:"无加成 ×" + cleanNum(P.m3)}
+    ];
+    var bar2 = "";
+    for(var si = 0; si < segDefs.length; si++){
+      var lo = Math.min(Math.max(segDefs[si].a, 0), D2);
+      var hi = Math.min(Math.max(segDefs[si].b, 0), D2);
+      bar2 += '<span style="width:' + Math.max(0, (hi - lo) / D2 * 100).toFixed(2) + '%;background:' + segDefs[si].c + '">' + segDefs[si].t + '</span>';
+    }
+    $("pbar2").innerHTML = bar2;
+
+    // 游标（黄线 + 气泡）
+    var mk = $("pmark2");
+    if(v > 0){
+      mk.style.display = "block";
+      var mkPct = Math.min(v / D2 * 100, 100);
+      mk.style.left = mkPct.toFixed(2) + "%";
+      mk.innerHTML = "<em>" + fmt(v) + "</em>";
+      var emEl = mk.firstChild;
+      if(mkPct < 6){ emEl.style.left = "0"; emEl.style.transform = "none"; }
+      else if(mkPct > 94){ emEl.style.left = "auto"; emEl.style.right = "0"; emEl.style.transform = "none"; }
+    } else {
+      mk.style.display = "none";
+    }
+
+    // 刻度：三档分界；再加一行黄色的「5,000 升级」线
+    var tk = "", tickVals = [P.b1, P.b2, P.b3];
+    for(var ti = 0; ti < tickVals.length; ti++){
+      var tp = Math.min(tickVals[ti] / D2 * 100, 100);
+      var ts = (tp > 94) ? 'right:0;transform:none' : ('left:' + tp.toFixed(2) + '%');
+      tk += '<i style="' + ts + '"><b>' + fmt(tickVals[ti]) + '</b></i>';
+    }
+    tk += '<i style="left:' + Math.min(MIL_UP / D2 * 100, 100).toFixed(2) +
+      '%;top:11px;font-size:10.5px"><b style="color:#ffd60a">' + fmt(MIL_UP) + ' 升级</b></i>';
+    $("pticks2").innerHTML = tk;
+
+    // 状态横幅（按里程碑：5,000 升级 / 11,167 过载）
+    var cls = "status ", title, sub;
+    if(v <= 0){
+      cls += "st-none";
+      title = "还没有经验";
+      sub = "输入当前经验，或在上面「本局记录」里输一局得分，这里会自动累加。";
+    } else if(v < MIL_UP){
+      cls += "st-green";
+      title = "★ 累计中（当前 " + fmt(v) + "）";
+      sub = "再加 " + fmt(MIL_UP - v) + " 经验到 5,000，会弹出「升级」提示。";
+    } else if(v < MIL_OVER){
+      cls += "st-blue";
+      title = "● 已解锁「升级」（超过 5,000）";
+      sub = "到 11,167 弹「过载」提示，还差 " + fmt(MIL_OVER - v) + " 经验。";
+    } else {
+      cls += "st-red";
+      title = "✖ 已解锁「过载」（超过 11,167）";
+      sub = "超出的部分只按 " + cleanNum(P.decay) + "%（×" + cleanNum(P.decay / 100) + "）计入。";
+    }
+    $("profBox").className = cls;
+    $("profTitle").textContent = title;
+    $("profSub").textContent = sub;
+
+    // 加法算式
+    $("profFormula").textContent = (topEff > 0 || slotBase > 0)
+      ? ("起点 " + fmt(slotBase) + " + 本局已算 " + fmt(topEff) + " = 当前 " + fmt(v))
+      : "";
+
+    // 里程碑弹窗：累计到 5,000 弹「升级」，到 11,167 弹「过载」（首次渲染不弹；面板隐藏时不弹）
+    if(profFirst){ profFirst = false; }
+    else if(panelState && panelState["游戏当前经验"]){
+      if(profPrev < MIL_UP && v >= MIL_UP){
+        showToast("升级", "累计经验达到 5,000，升级！", "ok");
+      }
+      if(profPrev < MIL_OVER && v >= MIL_OVER){
+        showToast("过载", "累计经验达到 11,167，之后超出部分只按 " + cleanNum(P.decay) + "% 计入。", "warn");
+      }
+    }
+    profPrev = v;
+    renderSlotBar();                       // 左侧栏的小结（局数/起点）跟着刷新
+  }
+
+  /* ---------- 经验进度（两条）：升级条 0~5,000 / 过载条 0~11,167 ---------- */
+  var miniPrev = 0, miniPrevAdd = 0, miniFirst = true;
+  function miniBar(fillId, knobId, tipId, outId, v, D){
+    var pct = Math.min(v / D * 100, 100);
+    $(fillId).style.width = pct.toFixed(2) + "%";
+    var k = $(knobId);
+    if(v > 0){ k.style.display = "block"; k.style.left = pct.toFixed(2) + "%"; }
+    else { k.style.display = "none"; }
+    $(outId).textContent = fmt(v) + " / " + fmt(D);
+    $(tipId).textContent = fmt(v) + " / " + fmt(D) + " (" + Math.min(v / D * 100, 100).toFixed(1) + "%)";
+  }
+  function renderMini(){
+    // 起点：你现在有多少经验（两条共用）
+    var base = parseFloat($("miniInput").value);
+    if(!isFinite(base) || base < 0) base = 0;
+    // 上面的本局记录加出来的经验（含输分预览）
+    var rate = P.rate || DEFAULTS.rate;
+    var tRaw = totalScore() * rate;
+    var pv = parseFloat($("recInput").value);
+    var topRaw = (isFinite(pv) && pv > 0) ? tRaw + pv * rate : tRaw;
+    var added = breakdown(topRaw).eff;
+    var v = base + added;                          // 当前 = 起点 + 已加
+
+    miniBar("mini1Fill", "mini1Knob", "mini1Tip", "mini1Out", v, MIL_UP);      // 升级条 5,000
+    miniBar("mini2Fill", "mini2Knob", "mini2Tip", "mini2Out", added, MIL_OVER);    // 过载条 11,167
+
+    $("miniFormula").textContent = (base > 0 || added > 0)
+      ? ("｜ " + fmt(v) + " = " + fmt(base) + " + " + fmt(added))
+      : "";
+
+    // 弹窗：到 5,000 弹「升级」，到 11,167 弹「已过载」
+    if(miniFirst){ miniFirst = false; }
+    else {
+      if(miniPrev < MIL_UP && v >= MIL_UP){
+        showToast("升级", "经验达到 5,000，升级！", "ok");
+      }
+      if(miniPrevAdd < MIL_OVER && added >= MIL_OVER){
+        showToast("已过载", "经验达到 11,167，已过载！", "warn");
+      }
+    }
+    miniPrev = v;
+    miniPrevAdd = added;
+    // 每局 113 分：还要几局升级 / 几局过载
+    var gs = [];
+    if(v >= MIL_UP){ gs.push("已升级"); }
+    else { gs.push("再 " + gamesToUp(base, added, MIL_UP) + " 局升级（还差 " + fmt(MIL_UP - v) + " 经验）"); }
+    if(added >= MIL_OVER){ gs.push("已过载"); }
+    else { gs.push("再 " + gamesToOver(added, MIL_OVER) + " 局过载（还差 " + fmt(MIL_OVER - added) + " 经验）"); }
+    $("miniGames").textContent = "按每局 " + fmt(P.per || DEFAULTS.per) + " 分算：" + gs.join(" ｜ ");
+  }
+  /* 按每局 113 分算：还要几局到目标（total 口径 / added 口径） */
+  function gamesToUp(base, added, target){
+    var n = 0, per = (P.per || DEFAULTS.per) * (P.rate || DEFAULTS.rate);
+    if(base + added >= target) return 0;
+    while(base + added < target && n < 9999){
+      var g = walk(added, per).eff;
+      if(!(g > 0)) break;
+      added += g; n++;
+    }
+    return n;
+  }
+  function gamesToOver(added, target){
+    var n = 0, per = (P.per || DEFAULTS.per) * (P.rate || DEFAULTS.rate);
+    if(added >= target) return 0;
+    while(added < target && n < 9999){
+      var g = walk(added, per).eff;
+      if(!(g > 0)) break;
+      added += g; n++;
+    }
+    return n;
+  }
+  $("miniInput").addEventListener("input", renderMini);
+  Array.prototype.forEach.call(document.querySelectorAll(".mini-track"), function(track){
+    track.addEventListener("mouseenter", function(){
+      var tip = track.querySelector(".mini-tip");
+      if(tip) tip.style.display = "block";
+    });
+    track.addEventListener("mouseleave", function(){
+      var tip = track.querySelector(".mini-tip");
+      if(tip) tip.style.display = "none";
+    });
+  });
+
+  /* ---------- 事件 ---------- */
+  function setMode(m){
+    mode = m;
+    // 换算显示值
+    var curRaw = raw;
+    var val = (m === "xp") ? curRaw : curRaw / (P.rate || DEFAULTS.rate);
+    $("mainInput").value = String(Math.round(val * 100) / 100);
+    $("modeScore").className = (m === "score") ? "on" : "";
+    $("modeXp").className = (m === "xp") ? "on" : "";
+    $("inputHint").textContent = (m === "score")
+      ? "1 分 = " + cleanNum(P.rate) + " 经验（自动折算为原始经验）"
+      : "直接输入原始周经验（即图纸横轴 X）";
+    render();
+  }
+  $("modeScore").addEventListener("click", function(){ setMode("score"); });
+  $("modeXp").addEventListener("click", function(){ setMode("xp"); });
+  $("mainInput").addEventListener("input", render);
+  $("revIn").addEventListener("input", render);
+
+  $("chips").addEventListener("click", function(e){
+    var btn = e.target.closest("button.chip");
+    if(!btn) return;
+    var v = parseFloat(btn.getAttribute("data-val")) || 0;
+    $("mainInput").value = String(mode === "score" ? Math.round(v / (P.rate || 1) * 100) / 100 : v);
+    render();
+  });
+
+  var paramIds = ["p_b1","p_b2","p_b3","p_m1","p_m2","p_m3","p_decay","p_rate","p_per"];
+  var paramMap = {p_b1:"b1", p_b2:"b2", p_b3:"b3", p_m1:"m1", p_m2:"m2", p_m3:"m3", p_decay:"decay", p_rate:"rate", p_per:"per"};
+  paramIds.forEach(function(id){
+    $(id).addEventListener("input", function(){
+      var v = parseFloat(this.value);
+      if(!isFinite(v)) return;
+      P[paramMap[id]] = v;
+      if(id === "p_rate"){
+        $("inputHint").textContent = (mode === "score")
+          ? "1 分 = " + cleanNum(P.rate) + " 经验（自动折算为原始经验）"
+          : "直接输入原始周经验（即图纸横轴 X）";
+      }
+      render();
+    });
+  });
+
+  document.querySelectorAll(".quick button").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var id = btn.getAttribute("data-set"), val = parseFloat(btn.getAttribute("data-val"));
+      $(id).value = val;
+      P[paramMap[id]] = val;
+      render();
+    });
+  });
+
+  $("resetBtn").addEventListener("click", function(){
+    P = Object.assign({}, DEFAULTS);
+    paramIds.forEach(function(id){ $(id).value = DEFAULTS[paramMap[id]]; });
+    $("inputHint").textContent = "1 分 = 4 经验（自动折算为原始经验）";
+    render();
+  });
+
+  /* 记录操作 */
+  function addRecord(){
+    var v = parseFloat($("recInput").value);
+    if(!isFinite(v) || v < 0){ $("recInput").focus(); return; }
+    records.push({s:v, t:Date.now()});
+    saveRecs();
+    $("recInput").value = "";
+    syncInputToRecords();
+    render();
+    $("recInput").focus();
+  }
+  $("recAdd").addEventListener("click", addRecord);
+  $("recInput").addEventListener("keydown", function(e){
+    if(e.key === "Enter"){ e.preventDefault(); addRecord(); }
+  });
+  $("recInput").addEventListener("input", renderRecords);
+  $("undoBtn").addEventListener("click", function(){
+    if(!records.length) return;
+    records.pop(); saveRecs(); syncInputToRecords(); render();
+  });
+  $("clearBtn").addEventListener("click", function(){
+    if(!records.length) return;
+    if(!window.confirm("确定清空所有本局记录？此操作不可恢复。")) return;
+    records = []; saveRecs(); syncInputToRecords(); render();
+  });
+  $("recList").addEventListener("click", function(e){
+    var btn = e.target && e.target.closest ? e.target.closest("button.del") : null;
+    if(!btn) return;
+    var i = parseInt(btn.getAttribute("data-i"), 10);
+    if(isFinite(i) && i >= 0 && i < records.length){
+      records.splice(i, 1); saveRecs(); syncInputToRecords(); render();
+    }
+  });
+
+  /* 第二条进度条：只改起点经验，其余自动跟着①的计算走 */
+  $("profInput").addEventListener("input", function(){
+    var v = parseFloat(this.value);
+    slotBase = (isFinite(v) && v >= 0) ? v : 0;
+    slotSave();
+    renderProf();
+  });
+
+  /* 面板显示管理：每个板块单独显示/隐藏（记住选择，按名字存，换顺序不会乱） */
+  var PANEL_KEY = "wxp_panels_v1";
+  var PANELS = ["本局记录", "经验进度（两条）", "游戏当前经验", "本周累计", "计算结果", "分段明细", "加成曲线", "反算", "参数设置"];
+  var PANEL_OLD_ORDER = ["本局记录", "游戏当前经验", "本周累计", "计算结果", "分段明细", "加成曲线", "反算", "参数设置", "经验进度（两条）"];
+  var panelState = null;
+  function loadPanels(){
+    var st = {};
+    try{
+      var o = JSON.parse(localStorage.getItem(PANEL_KEY) || "null");
+      if(o && typeof o === "object"){
+        if(o["0"] !== undefined){
+          // 旧版按下标存 → 迁移成按名字存
+          var m = {};
+          for(var k = 0; k < PANEL_OLD_ORDER.length; k++){ if(o[k] !== undefined) m[PANEL_OLD_ORDER[k]] = !!o[k]; }
+          o = m;
+          try{ localStorage.setItem(PANEL_KEY, JSON.stringify(o)); }catch(e){}
+        }
+        st = o;
+      }
+    }catch(e){}
+    panelState = {};
+    for(var i = 0; i < PANELS.length; i++){
+      // 没存过时：默认显示「本局记录」「经验进度（两条）」「加成曲线」
+      panelState[PANELS[i]] = (st[PANELS[i]] === undefined)
+        ? (PANELS[i] === "本局记录" || PANELS[i] === "经验进度（两条）" || PANELS[i] === "加成曲线")
+        : !!st[PANELS[i]];
+    }
+  }
+  function savePanels(){ try{ localStorage.setItem(PANEL_KEY, JSON.stringify(panelState)); }catch(e){} }
+  function renderPanels(){
+    var cards = document.querySelectorAll(".col > .card");
+    for(var i = 0; i < cards.length; i++){
+      cards[i].style.display = panelState[PANELS[i]] ? "" : "none";
+    }
+    var html = "";
+    for(var j = 0; j < PANELS.length; j++){
+      html += '<button type="button" class="pchip' + (panelState[PANELS[j]] ? " on" : "") + '" data-p="' + PANELS[j] + '">' + PANELS[j] + '</button>';
+    }
+    $("panelChips").innerHTML = html;
+  }
+  $("panelChips").addEventListener("click", function(e){
+    var b = e.target.closest("button.pchip");
+    if(!b) return;
+    var k = b.getAttribute("data-p");
+    if(!k) return;
+    panelState[k] = !panelState[k];
+    savePanels();
+    renderPanels();
+  });
+
+  /* 左侧副本栏：切换 / 添加 / 重置 / 右键删除 */
+  $("slotList").addEventListener("click", function(e){
+    var btn = e.target.closest("button.slot-btn");
+    if(!btn) return;
+    var n = parseInt(btn.getAttribute("data-slot"), 10);
+    if(isFinite(n)) switchSlot(n);
+  });
+  $("slotList").addEventListener("contextmenu", function(e){
+    var btn = e.target.closest("button.slot-btn");
+    if(!btn) return;
+    e.preventDefault();
+    var n = parseInt(btn.getAttribute("data-slot"), 10);
+    if(isFinite(n)) delSlot(n);
+  });
+  $("slotAdd").addEventListener("click", addSlot);
+  $("slotReset").addEventListener("click", resetSlot);
+
+  // 初始化：恢复当前副本的数据
+  loadSlots();
+  slotLoad();
+  renderSlotBar();
+  loadPanels();
+  renderPanels();
+  renderMini();
+  if(slotMain !== null){
+    $("mainInput").value = String(Math.round(slotMain * 100) / 100);
+  } else if(records.length){
+    syncInputToRecords();
+  }
+  $("profInput").value = slotBase ? String(Math.round(slotBase * 100) / 100) : "";
+  render();
+})();
+</script>
+</body>
+</html>
