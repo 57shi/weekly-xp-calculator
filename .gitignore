@@ -1,0 +1,8 @@
+﻿# 构建产物（exe 走 Release，单文件超 100MB）
+*.exe
+score_helper/dist/
+score_helper/build/
+score_helper/__pycache__/
+score_config.json
+score_state.json
+截图/
